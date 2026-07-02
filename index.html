@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Immigrant Fiscal Impact Dashboard (1994-2023)</title>
+    <meta name="description" content="Interactive dashboard analyzing the fiscal impact of immigrants on the U.S. economy, based on Cato Institute's 2026 study. Explore statuses, costs, and policy parameters in real-time.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Controls / Policy Simulator -->
+        <aside class="sidebar" id="sidebar-controls">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-sliders slider-icon"></i>
+                <h2>Policy Simulator</h2>
+            </div>
+            <p class="sidebar-intro">Adjust parameters to see how academic and political assumptions change the net fiscal impact of immigration in real-time.</p>
+            
+            <div class="control-group">
+                <h3><i class="fa-solid fa-shield-halved"></i> Fixed Costs / Public Goods</h3>
+                <p class="control-description">NASEM allocates a pro-rata share of "pure public goods" (defense, past debt interest, space) to immigrants. Cato allocates $0, treating them as fixed costs.</p>
+                <div class="toggle-container">
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-fixed-costs">
+                        <span class="slider round"></span>
+                    </label>
+                    <span class="toggle-label" id="fixed-costs-label">Marginal Cost ($0 Defense/Debt)</span>
+                </div>
+                
+                <div class="sub-control" id="defense-share-container" style="display: none;">
+                    <label for="defense-share-slider" class="slider-label-val">
+                        <span>Defense/Debt Allocation Share:</span>
+                        <span id="defense-share-val">100%</span>
+                    </label>
+                    <input type="range" id="defense-share-slider" min="0" max="100" value="100" class="range-slider">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3><i class="fa-solid fa-hand-holding-dollar"></i> Included Cost Buckets</h3>
+                <p class="control-description">Select which government cost categories to include in the calculations.</p>
+                <div class="checkbox-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="cost-k12" checked>
+                        <span class="checkmark"></span>
+                        <span class="checkbox-label">K-12 Education (for kids)</span>
+                    </label>
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="cost-oldage" checked>
+                        <span class="checkmark"></span>
+                        <span class="checkbox-label">Old-Age Benefits (OASDI/Medicare)</span>
+                    </label>
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="cost-welfare" checked>
+                        <span class="checkmark"></span>
+                        <span class="checkbox-label">Needs-based & Welfare</span>
+                    </label>
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="cost-congestible" checked>
+                        <span class="checkmark"></span>
+                        <span class="checkbox-label">Congestible Public Goods</span>
+                    </label>
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="cost-prisons" checked>
+                        <span class="checkmark"></span>
+                        <span class="checkbox-label">Incarceration & Felony Police</span>
+                    </label>
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="cost-highered" checked>
+                        <span class="checkmark"></span>
+                        <span class="checkbox-label">Higher Education (Colleges)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3><i class="fa-solid fa-children"></i> U.S.-Born Child Attribution</h3>
+                <p class="control-description">Determine how the costs of U.S.-born children of immigrants (education, health) are attributed.</p>
+                <div class="radio-group">
+                    <label class="radio-container">
+                        <input type="radio" name="child-attribution" value="cato" checked id="radio-child-cato">
+                        <span class="radio-mark"></span>
+                        <span class="radio-label">Cato Model (No Parent Attribution)</span>
+                    </label>
+                    <label class="radio-container">
+                        <input type="radio" name="child-attribution" value="cis" id="radio-child-cis">
+                        <span class="radio-mark"></span>
+                        <span class="radio-label">CIS Model (Attribute Child Costs Only)</span>
+                    </label>
+                    <label class="radio-container">
+                        <input type="radio" name="child-attribution" value="full" id="radio-child-full">
+                        <span class="radio-mark"></span>
+                        <span class="radio-label">Full Multigenerational (Cato Scenario)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3><i class="fa-solid fa-file-invoice-dollar"></i> Undocumented Tax Compliance</h3>
+                <p class="control-description">Set the income and payroll tax compliance rate for undocumented immigrants (ITEP baseline is 60%).</p>
+                <div class="slider-container">
+                    <div class="slider-header">
+                        <span class="slider-name">Tax Compliance Rate:</span>
+                        <span class="slider-value" id="tax-compliance-val">60%</span>
+                    </div>
+                    <input type="range" id="tax-compliance-slider" min="0" max="100" value="60" class="range-slider">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3><i class="fa-solid fa-house-chimney"></i> Indirect Property Taxes</h3>
+                <p class="control-description">Credit immigrants with indirect property taxes generated by U.S.-born homeowners due to immigrant-induced housing demand ($1.0T cumulative).</p>
+                <div class="toggle-container">
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-property-tax" checked>
+                        <span class="slider round"></span>
+                    </label>
+                    <span class="toggle-label" id="property-tax-label">Include Housing Effect</span>
+                </div>
+            </div>
+            
+            <button class="btn-reset" id="btn-reset-simulator" title="Reset all simulator parameters to Cato study baseline values">
+                <i class="fa-solid fa-rotate-left"></i> Reset to Study Baseline
+            </button>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-main">
+                    <h1>Immigrant Fiscal Impact Dashboard</h1>
+                    <span class="badge">Academic Analysis: 1994–2023</span>
+                </div>
+                <p class="subtitle">Exploring the 30-Year Net Contribution of Immigrants to Federal, State, and Local Budgets.</p>
+            </header>
+
+            <!-- Real-Time Final Net Impact Panel -->
+            <section class="net-impact-panel" aria-label="Final Net Fiscal Impact Results">
+                <div class="panel-title">
+                    <i class="fa-solid fa-calculator"></i>
+                    <h2>Calculated Net Fiscal Impact (1994–2023 Combined)</h2>
+                </div>
+                <div class="impact-cards-grid">
+                    <div class="impact-card" id="card-naturalized">
+                        <div class="card-header">
+                            <span class="card-title">Naturalized Citizens</span>
+                            <span class="card-icon"><i class="fa-solid fa-passport"></i></span>
+                        </div>
+                        <div class="card-body">
+                            <h3 class="card-number" id="val-net-naturalized">+$8.10T</h3>
+                            <span class="card-subtext" id="sub-net-naturalized">+$380,337 per capita</span>
+                        </div>
+                    </div>
+
+                    <div class="impact-card" id="card-temporary">
+                        <div class="card-header">
+                            <span class="card-title">Visa / Temporary (Legal)</span>
+                            <span class="card-icon"><i class="fa-solid fa-id-card"></i></span>
+                        </div>
+                        <div class="card-body">
+                            <h3 class="card-number" id="val-net-temporary">+$4.60T</h3>
+                            <span class="card-subtext" id="sub-net-temporary">+$236,200 per capita</span>
+                        </div>
+                    </div>
+
+                    <div class="impact-card" id="card-undocumented">
+                        <div class="card-header">
+                            <span class="card-title">Undocumented (Illegal)</span>
+                            <span class="card-icon"><i class="fa-solid fa-user-slash"></i></span>
+                        </div>
+                        <div class="card-body">
+                            <h3 class="card-number" id="val-net-undocumented">+$1.69T</h3>
+                            <span class="card-subtext" id="sub-net-undocumented">+$190,284 per capita</span>
+                        </div>
+                    </div>
+
+                    <div class="impact-card total-card" id="card-all-immigrants">
+                        <div class="card-header">
+                            <span class="card-title">All Immigrants (Combined)</span>
+                            <span class="card-icon"><i class="fa-solid fa-users"></i></span>
+                        </div>
+                        <div class="card-body">
+                            <h3 class="card-number" id="val-net-all">+$14.47T</h3>
+                            <span class="card-subtext" id="sub-net-all">+$287,150 per capita</span>
+                        </div>
+                    </div>
+
+                    <div class="impact-card native-card" id="card-natives">
+                        <div class="card-header">
+                            <span class="card-title">U.S.-Born Natives</span>
+                            <span class="card-icon"><i class="fa-solid fa-flag-usa"></i></span>
+                        </div>
+                        <div class="card-body">
+                            <h3 class="card-number negative" id="val-net-natives">-$44.35T</h3>
+                            <span class="card-subtext" id="sub-net-natives">-$166,605 per capita</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-footer">
+                    <span class="notes-indicator"><i class="fa-solid fa-info-circle"></i> Notes:</span>
+                    <p>Amounts are inflation-adjusted to 2024 dollars. Values include cumulative net annual fiscal flow plus interest savings on reduced debt. T = Trillions, B = Billions.</p>
+                </div>
+            </section>
+
+            <!-- Navigation Tabs -->
+            <nav class="nav-tabs" aria-label="Dashboard Tabs">
+                <button class="tab-link active" onclick="openTab(event, 'tab-overview')" id="tab-btn-overview">
+                    <i class="fa-solid fa-chart-line"></i> Overview
+                </button>
+                <button class="tab-link" onclick="openTab(event, 'tab-status')" id="tab-btn-status">
+                    <i class="fa-solid fa-circle-user"></i> Immigrant Status
+                </button>
+                <button class="tab-link" onclick="openTab(event, 'tab-breakdown')" id="tab-btn-breakdown">
+                    <i class="fa-solid fa-layer-group"></i> Cost & Revenue Details
+                </button>
+                <button class="tab-link" onclick="openTab(event, 'tab-sources')" id="tab-btn-sources">
+                    <i class="fa-solid fa-database"></i> Data Sources Explorer
+                </button>
+                <button class="tab-link" onclick="openTab(event, 'tab-raw-data')" id="tab-btn-raw-data">
+                    <i class="fa-solid fa-code"></i> Raw Data Viewer
+                </button>
+            </nav>
+
+            <!-- Tab: Overview -->
+            <div id="tab-overview" class="tab-content active">
+                <div class="grid-2col">
+                    <div class="chart-container glass">
+                        <h3>Cumulative Taxes Paid vs. Government Spending (1994–2023)</h3>
+                        <div class="canvas-wrapper">
+                            <canvas id="chart-overview-comparison"></canvas>
+                        </div>
+                    </div>
+                    <div class="text-card glass">
+                        <h3>Key Findings of the Study</h3>
+                        <ul class="bullet-list">
+                            <li><strong>Consistently Positive:</strong> In every single year from 1994 to 2023, the U.S. immigrant population generated more in federal, state, and local taxes than they cost in government services.</li>
+                            <li><strong>Deficit Reduction:</strong> Over this 30-year period, immigrants generated a net fiscal surplus of <strong>$10.6 Trillion</strong>. When accounting for interest savings on the national debt, the total fiscal savings reaches <strong>$14.5 Trillion</strong>.</li>
+                            <li><strong>Old-Age Benefit Savings:</strong> Immigrants cost 34% less per capita than U.S.-born citizens on old-age benefits (Social Security, Medicare, pensions) because they are younger and face legal barriers to eligibility.</li>
+                            <li><strong>Education Savings:</strong> Immigrants cost 53% less per capita on education because most arrive after completing school, providing the economy with trained workers without the training costs.</li>
+                            <li><strong>Debt Crisis Prevention:</strong> Without the positive fiscal contribution of immigrants and their children, U.S. public debt would have exceeded <strong>205% of GDP</strong> by 2023 (nearly 75 percentage points higher).</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Immigrant Status -->
+            <div id="tab-status" class="tab-content">
+                <div class="grid-2col">
+                    <div class="chart-container glass">
+                        <h3>Net Fiscal Impact per Capita by Immigrant Type</h3>
+                        <p class="chart-description">Comparing the total average fiscal footprint (cumulative net impact per person) over the 1994-2023 period.</p>
+                        <div class="canvas-wrapper">
+                            <canvas id="chart-status-percapita"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-container glass">
+                        <h3>Total Fiscal Flows by Education & Status (Billions)</h3>
+                        <div class="canvas-wrapper">
+                            <canvas id="chart-status-education"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="data-table-container glass">
+                    <h3>Detailed Breakdown by Immigrant Group (1994-2023 Cumulative)</h3>
+                    <table class="data-table" id="table-status-breakdown">
+                        <thead>
+                            <tr>
+                                <th>Immigrant Group / Nativity</th>
+                                <th>Taxes Paid (B)</th>
+                                <th>Spending / Benefits (B)</th>
+                                <th>Calculated Net Flow (B)</th>
+                                <th>Calculated Per Capita Net</th>
+                                <th>GDP Generated (B)</th>
+                                <th>Net Flow / GDP</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-status-body">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab: Cost & Revenue Breakdown -->
+            <div id="tab-breakdown" class="tab-content">
+                <div class="grid-2col">
+                    <div class="chart-container glass">
+                        <h3>Annual Per Capita Expenditures (Detailed Items)</h3>
+                        <p class="chart-description">Excluding pure public goods like national defense. Demonstrates where cost differences arise.</p>
+                        <div class="canvas-wrapper">
+                            <canvas id="chart-costs-breakdown"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-container glass">
+                        <h3>Tax Revenue Streams (Cumulative Billions)</h3>
+                        <p class="chart-description">Where immigrant and native tax revenues originate.</p>
+                        <div class="canvas-wrapper">
+                            <canvas id="chart-taxes-breakdown"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="data-table-container glass">
+                    <h3>Detailed Spending and Revenue Variables List</h3>
+                    <div class="filter-controls">
+                        <span class="filter-label">Filter Category:</span>
+                        <select id="select-category-filter" class="category-select">
+                            <option value="all">Show All Items (70 items)</option>
+                            <option value="Tax">Revenues / Taxes (15 items)</option>
+                            <option value="Needs">Welfare / Needs-based Benefits (19 items)</option>
+                            <option value="Education">Education Programs (4 items)</option>
+                            <option value="OldAge">Old-Age Benefits (6 items)</option>
+                            <option value="Prisons">Incarceration & Police (2 items)</option>
+                            <option value="PurePublic">Pure Public Goods / Fixed Costs (12 items)</option>
+                            <option value="Other">Congestible Public Goods (2 items)</option>
+                        </select>
+                    </div>
+                    <table class="data-table" id="table-variables-list">
+                        <thead>
+                            <tr>
+                                <th>Item Name</th>
+                                <th>Type</th>
+                                <th>US-Born Total (Billions)</th>
+                                <th>Immigrant Total (Billions)</th>
+                                <th>Difference (Billions)</th>
+                                <th>US-Born Share</th>
+                                <th>Immigrant Share</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-variables-body">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab: Data Sources Explorer -->
+            <div id="tab-sources" class="tab-content">
+                <div class="glass text-card">
+                    <h3>Academic & Public Databases Used in the Study</h3>
+                    <p>The NASEM-Cato model distributes all federal, state, and local taxes and government spending to individual respondents. Below is the mapping of public databases used to construct the model:</p>
+                    
+                    <div class="source-grid">
+                        <div class="source-card">
+                            <div class="source-icon"><i class="fa-solid fa-users-line"></i></div>
+                            <h4>Census Bureau CPS ASEC</h4>
+                            <p><strong>Current Population Survey Annual Social and Economic Supplement (March 1994–2023)</strong></p>
+                            <p>Used to distribute the share of income, employment, school enrollment, family structure, and participation in welfare programs (Medicaid, SNAP, SSI, TANF, housing subsidies, EITC, CTC) between immigrants and natives.</p>
+                            <a href="https://www.census.gov/programs-surveys/cps.html" target="_blank" class="source-link">Access Database <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                        </div>
+
+                        <div class="source-card">
+                            <div class="source-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                            <h4>BEA NIPA Accounts</h4>
+                            <p><strong>Bureau of Economic Analysis National Income and Product Accounts</strong></p>
+                            <p>The "source of truth" for total actual U.S. government current receipts (revenues) and current expenditures (spending). All micro-data totals are scaled proportionally to match these national aggregates, preventing over- or under-counting.</p>
+                            <a href="https://www.bea.gov/data/gdp/gross-domestic-product" target="_blank" class="source-link">Access Database <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                        </div>
+
+                        <div class="source-card">
+                            <div class="source-icon"><i class="fa-solid fa-house-user"></i></div>
+                            <h4>Census Bureau ACS</h4>
+                            <p><strong>American Community Survey (2006–2023)</strong></p>
+                            <p>Provides critical detailed metadata on institutionalized populations (such as those in prisons, jails, detention facilities, and nursing homes) and Limited English Proficiency (LEP) rates, which do not exist in detail in the CPS.</p>
+                            <a href="https://www.census.gov/programs-surveys/acs.html" target="_blank" class="source-link">Access Database <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                        </div>
+
+                        <div class="source-card">
+                            <div class="source-icon"><i class="fa-solid fa-heart-pulse"></i></div>
+                            <h4>AHRQ MEPS & CMS NHEA</h4>
+                            <p><strong>Medical Expenditure Panel Survey & National Health Expenditure Accounts</strong></p>
+                            <p>The NHEA estimates per-enrollee medical spending by age and gender. The MEPS provides the only major health dataset tracking health expenditure shares by nativity, which is used to adjust Medicare and Medicaid spending distributions.</p>
+                            <a href="https://www.cms.gov/data-research/statistics-trends-and-reports/national-health-expenditure-data" target="_blank" class="source-link">Access Database <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                        </div>
+
+                        <div class="source-card">
+                            <div class="source-icon"><i class="fa-solid fa-school"></i></div>
+                            <h4>Survey of School Finances</h4>
+                            <p><strong>Census Bureau Annual Survey of School System Finances</strong></p>
+                            <p>Provides state-by-state actual per-pupil spending on public K-12 education. This is combined with individual student enrollment data and English proficiency weights to estimate specific K-12 schooling costs.</p>
+                            <a href="https://www.census.gov/programs-surveys/school-finances.html" target="_blank" class="source-link">Access Database <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                        </div>
+
+                        <div class="source-card">
+                            <div class="source-icon"><i class="fa-solid fa-landmark"></i></div>
+                            <h4>OMB Historical Tables</h4>
+                            <p><strong>White House Office of Management and Budget Historical Tables</strong></p>
+                            <p>Provides detailed aggregates for specific federal spending categories and tax credit outlays (such as Table 11.3 for outlays for payments to individuals and Table 3.2 for outlays by subfunction).</p>
+                            <a href="https://www.whitehouse.gov/omb/historical-tables/" target="_blank" class="source-link">Access Database <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Raw Data Viewer -->
+            <div id="tab-raw-data" class="tab-content">
+                <div class="glass text-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                        <h3>Raw Study Dataset Viewer</h3>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button class="btn-primary" id="btn-copy-raw-json">
+                                <i class="fa-solid fa-copy"></i> Copy JSON
+                            </button>
+                            <button class="btn-primary" id="btn-download-raw-json">
+                                <i class="fa-solid fa-download"></i> Download JSON
+                            </button>
+                            <button class="btn-primary" id="btn-download-raw-csv">
+                                <i class="fa-solid fa-file-csv"></i> Download CSV
+                            </button>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: -0.5rem; margin-bottom: 1.5rem; line-height: 1.45;">
+                        This is the complete structured database extracted from the Cato Institute study and NASEM variables list. It contains population metadata, annual per-capita expenditures, and 30-year cumulative spending and tax items (in Billions) for US-born and Immigrant totals.
+                    </p>
+                    
+                    <div class="raw-data-wrapper" style="background: rgba(9, 13, 22, 0.6); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; overflow: auto; max-height: 500px;">
+                        <pre style="margin: 0; font-family: monospace; font-size: 0.82rem; line-height: 1.5; color: #a5b4fc; white-space: pre-wrap; word-break: break-all;"><code id="raw-json-block">Loading raw data...</code></pre>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Script imports -->
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
