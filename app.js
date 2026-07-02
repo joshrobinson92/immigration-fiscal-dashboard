@@ -9,6 +9,7 @@ let state = {
     propertyTaxToggled: true, // true = include housing effect, false = exclude
     activeTab: 'tab-overview',
     categoryFilter: 'all',
+    timeframe: 'annual', // 'annual' = divide by 30 years, 'cumulative' = 30-year total
     
     // Included Cost Buckets state (checkboxes)
     costK12: true,
@@ -124,6 +125,27 @@ function initEventListeners() {
         renderVariablesTable();
     });
 
+    // Timeframe toggle (Annual vs Cumulative)
+    const timeframeToggle = document.getElementById("toggle-timeframe");
+    const timeframeLabel = document.getElementById("timeframe-label");
+    const panelHeadingTitle = document.getElementById("panel-heading-title");
+
+    timeframeToggle.addEventListener("change", (e) => {
+        state.timeframe = e.target.checked ? 'annual' : 'cumulative';
+        if (state.timeframe === 'annual') {
+            timeframeLabel.innerText = "Annual Average";
+            timeframeLabel.style.color = "var(--primary)";
+            panelHeadingTitle.innerText = "Calculated Net Fiscal Impact (Annualized Average)";
+        } else {
+            timeframeLabel.innerText = "30-Year Cumulative";
+            timeframeLabel.style.color = "var(--text-muted)";
+            panelHeadingTitle.innerText = "Calculated Net Fiscal Impact (30-Year Cumulative)";
+        }
+        runSimulation();
+        renderStatusTable();
+        renderVariablesTable();
+    });
+
     // Reset button
     const btnReset = document.getElementById("btn-reset-simulator");
     btnReset.addEventListener("click", () => {
@@ -158,6 +180,12 @@ function initEventListeners() {
         propertyToggle.checked = true;
         propertyLabel.innerText = "Include Housing Effect";
         state.propertyTaxToggled = true;
+
+        timeframeToggle.checked = true;
+        state.timeframe = 'annual';
+        timeframeLabel.innerText = "Annual Average";
+        timeframeLabel.style.color = "var(--primary)";
+        panelHeadingTitle.innerText = "Calculated Net Fiscal Impact (Annualized Average)";
 
         runSimulation();
     });
@@ -429,7 +457,7 @@ function runSimulation() {
     let finalAllImmigrantsNet = (simNaturalizedNetFlow + simLegalNoncitizenNetFlow + simIllegalNetFlow) + simAllImmigrantsInterest;
     let finalNativesNet = simNativesNetFlow; // Natives do not save interest in the model
 
-    // Per capita calculations
+    // Per capita calculations (using base cumulative/average)
     let pcNaturalized = (finalNaturalizedNet * 1e9) / (POPULATIONS.naturalized * 1e6);
     let pcIllegal = (finalIllegalNet * 1e9) / (POPULATIONS.illegal * 1e6);
     let pcLegalNoncitizen = (finalLegalNoncitizenNet * 1e9) / (POPULATIONS.legal_noncitizen * 1e6);
@@ -441,34 +469,49 @@ function runSimulation() {
     }
     let pcNatives = (finalNativesNet * 1e9) / (nativePop * 1e6);
 
+    // Apply Timeframe Divisor
+    let divisor = state.timeframe === 'annual' ? 30.0 : 1.0;
+
+    let displayNaturalizedNet = finalNaturalizedNet / divisor;
+    let displayIllegalNet = finalIllegalNet / divisor;
+    let displayLegalNoncitizenNet = finalLegalNoncitizenNet / divisor;
+    let displayAllImmigrantsNet = finalAllImmigrantsNet / divisor;
+    let displayNativesNet = finalNativesNet / divisor;
+
+    let displayPcNaturalized = pcNaturalized / divisor;
+    let displayPcIllegal = pcIllegal / divisor;
+    let displayPcLegalNoncitizen = pcLegalNoncitizen / divisor;
+    let displayPcAllImmigrants = pcAllImmigrants / divisor;
+    let displayPcNatives = pcNatives / divisor;
+
     // UPDATE DOM PANELS
-    updatePanel("val-net-naturalized", "sub-net-naturalized", finalNaturalizedNet, pcNaturalized);
-    updatePanel("val-net-temporary", "sub-net-temporary", finalLegalNoncitizenNet, pcLegalNoncitizen);
-    updatePanel("val-net-undocumented", "sub-net-undocumented", finalIllegalNet, pcIllegal);
-    updatePanel("val-net-all", "sub-net-all", finalAllImmigrantsNet, pcAllImmigrants);
-    updatePanel("val-net-natives", "sub-net-natives", finalNativesNet, pcNatives);
+    updatePanel("val-net-naturalized", "sub-net-naturalized", displayNaturalizedNet, displayPcNaturalized);
+    updatePanel("val-net-temporary", "sub-net-temporary", displayLegalNoncitizenNet, displayPcLegalNoncitizen);
+    updatePanel("val-net-undocumented", "sub-net-undocumented", displayIllegalNet, displayPcIllegal);
+    updatePanel("val-net-all", "sub-net-all", displayAllImmigrantsNet, displayPcAllImmigrants);
+    updatePanel("val-net-natives", "sub-net-natives", displayNativesNet, displayPcNatives);
 
     // Save simulation outputs for chart functions
     state.simulatedData = {
-        naturalized: finalNaturalizedNet,
-        legal_noncitizen: finalLegalNoncitizenNet,
-        illegal: finalIllegalNet,
-        all_immigrants: finalAllImmigrantsNet,
-        natives: finalNativesNet,
-        pc_naturalized: pcNaturalized,
-        pc_legal_noncitizen: pcLegalNoncitizen,
-        pc_illegal: pcIllegal,
-        pc_all_immigrants: pcAllImmigrants,
-        pc_natives: pcNatives,
+        naturalized: displayNaturalizedNet,
+        legal_noncitizen: displayLegalNoncitizenNet,
+        illegal: displayIllegalNet,
+        all_immigrants: displayAllImmigrantsNet,
+        natives: displayNativesNet,
+        pc_naturalized: displayPcNaturalized,
+        pc_legal_noncitizen: displayPcLegalNoncitizen,
+        pc_illegal: displayPcIllegal,
+        pc_all_immigrants: displayPcAllImmigrants,
+        pc_natives: displayPcNatives,
         
-        // Raw values (without interest) for charts
-        raw_naturalized_tax: taxNaturalized,
-        raw_illegal_tax: taxIllegal,
-        raw_legal_noncitizen_tax: taxLegalNoncitizen,
+        // Raw values (without interest) for charts, scaled by divisor
+        raw_naturalized_tax: taxNaturalized / divisor,
+        raw_illegal_tax: taxIllegal / divisor,
+        raw_legal_noncitizen_tax: taxLegalNoncitizen / divisor,
         
-        raw_naturalized_spend: spendNaturalized,
-        raw_illegal_spend: spendIllegal,
-        raw_legal_noncitizen_spend: spendLegalNoncitizen
+        raw_naturalized_spend: spendNaturalized / divisor,
+        raw_illegal_spend: spendIllegal / divisor,
+        raw_legal_noncitizen_spend: spendLegalNoncitizen / divisor
     };
 
     // Update charts dynamically if visible
@@ -863,21 +906,35 @@ function renderStatusTable() {
     const tbody = document.getElementById("table-status-body");
     tbody.innerHTML = "";
     
+    let divisor = state.timeframe === 'annual' ? 30.0 : 1.0;
+    
+    // Update the column headers of the table based on timeframe
+    const headers = document.querySelectorAll("#table-status-breakdown th");
+    if (headers && headers.length >= 6) {
+        let suffix = state.timeframe === 'annual' ? " (Annual B)" : " (B)";
+        let pcSuffix = state.timeframe === 'annual' ? " Annual Per Capita" : " Per Capita Net";
+        headers[1].innerText = "Taxes Paid" + suffix;
+        headers[2].innerText = "Spending / Benefits" + suffix;
+        headers[3].innerText = "Calculated Net Flow" + suffix;
+        headers[4].innerText = pcSuffix;
+        headers[5].innerText = "GDP Generated" + suffix;
+    }
+    
     // Sort out items from simulation state
     const dataList = [
-        { name: "Naturalized Citizens", tax: state.simulatedData.raw_naturalized_tax, spend: state.simulatedData.raw_naturalized_spend, net: state.simulatedData.naturalized, pc: state.simulatedData.pc_naturalized, gdp: 380337.0 / 10.0 }, // Approx annual GDP
-        { name: "Visa / Temporary (Legal)", tax: state.simulatedData.raw_legal_noncitizen_tax, spend: state.simulatedData.raw_legal_noncitizen_spend, net: state.simulatedData.legal_noncitizen, pc: state.simulatedData.pc_legal_noncitizen, gdp: (217459.0 - 190284.0) / 10.0 },
-        { name: "Undocumented (Illegal)", tax: state.simulatedData.raw_illegal_tax, spend: state.simulatedData.raw_illegal_spend, net: state.simulatedData.illegal, pc: state.simulatedData.pc_illegal, gdp: 190284.0 / 10.0 },
-        { name: "All Immigrants (Combined)", tax: state.simulatedData.raw_naturalized_tax + state.simulatedData.raw_legal_noncitizen_tax + state.simulatedData.raw_illegal_tax, spend: state.simulatedData.raw_naturalized_spend + state.simulatedData.raw_legal_noncitizen_spend + state.simulatedData.raw_illegal_spend, net: state.simulatedData.all_immigrants, pc: state.simulatedData.pc_all_immigrants, gdp: 287150.0 / 10.0 },
-        { name: "U.S.-Born Natives", tax: 148715.0, spend: 193069.0, net: state.simulatedData.natives, pc: state.simulatedData.pc_natives, gdp: 530890.0 / 10.0 }
+        { name: "Naturalized Citizens", tax: state.simulatedData.raw_naturalized_tax, spend: state.simulatedData.raw_naturalized_spend, net: state.simulatedData.naturalized, pc: state.simulatedData.pc_naturalized, gdp: 380337.0 / divisor },
+        { name: "Visa / Temporary (Legal)", tax: state.simulatedData.raw_legal_noncitizen_tax, spend: state.simulatedData.raw_legal_noncitizen_spend, net: state.simulatedData.legal_noncitizen, pc: state.simulatedData.pc_legal_noncitizen, gdp: (217459.0 - 190284.0) / divisor },
+        { name: "Undocumented (Illegal)", tax: state.simulatedData.raw_illegal_tax, spend: state.simulatedData.raw_illegal_spend, net: state.simulatedData.illegal, pc: state.simulatedData.pc_illegal, gdp: 190284.0 / divisor },
+        { name: "All Immigrants (Combined)", tax: state.simulatedData.raw_naturalized_tax + state.simulatedData.raw_legal_noncitizen_tax + state.simulatedData.raw_illegal_tax, spend: state.simulatedData.raw_naturalized_spend + state.simulatedData.raw_legal_noncitizen_spend + state.simulatedData.raw_illegal_spend, net: state.simulatedData.all_immigrants, pc: state.simulatedData.pc_all_immigrants, gdp: 287150.0 / divisor },
+        { name: "U.S.-Born Natives", tax: 148715.0 / divisor, spend: 193069.0 / divisor, net: state.simulatedData.natives, pc: state.simulatedData.pc_natives, gdp: 530890.0 / divisor }
     ];
 
     dataList.forEach(item => {
         const tr = document.createElement("tr");
         
         let netPctGDP = ((item.net / item.gdp) * 100).toFixed(1) + "%";
-        if (item.name === "U.S.-Born Natives" || item.name === "Second Gen") {
-            netPctGDP = ((item.net / 530890.0) * 100).toFixed(1) + "%";
+        if (item.name === "U.S.-Born Natives") {
+            netPctGDP = ((item.net / (530890.0 / divisor)) * 100).toFixed(1) + "%";
         }
         
         let formattedNet = (item.net >= 0 ? "+" : "-") + "$" + Math.abs(item.net).toFixed(1) + "B";
@@ -904,6 +961,17 @@ function renderVariablesTable() {
     const tbody = document.getElementById("table-variables-body");
     tbody.innerHTML = "";
 
+    let divisor = state.timeframe === 'annual' ? 30.0 : 1.0;
+
+    // Update column headers for variables list
+    const headers = document.querySelectorAll("#table-variables-list th");
+    if (headers && headers.length >= 5) {
+        let suffix = state.timeframe === 'annual' ? " (Annual B)" : " (Billions)";
+        headers[2].innerText = "US-Born Total" + suffix;
+        headers[3].innerText = "Immigrant Total" + suffix;
+        headers[4].innerText = "Difference" + suffix;
+    }
+
     const a4 = CATO_STUDY_DATA.spending_and_taxes_detail;
     let filtered = a4;
     
@@ -914,10 +982,19 @@ function renderVariablesTable() {
     filtered.forEach(item => {
         const tr = document.createElement("tr");
         
-        const diff = item.immigrants - item.us_born;
-        const total = item.us_born + item.immigrants;
-        const usShare = total !== 0 ? ((item.us_born / total) * 100).toFixed(1) + "%" : "0%";
-        const immShare = total !== 0 ? ((item.immigrants / total) * 100).toFixed(1) + "%" : "0%";
+        let us_born = item.us_born;
+        let immigrants = item.immigrants;
+        if (item.name === "Indirect property taxes" && !state.propertyTaxToggled) {
+            us_born = 0.0;
+            immigrants = 0.0;
+        }
+
+        let displayUsBorn = us_born / divisor;
+        let displayImmigrants = immigrants / divisor;
+        const diff = displayImmigrants - displayUsBorn;
+        const total = displayUsBorn + displayImmigrants;
+        const usShare = total !== 0 ? ((displayUsBorn / total) * 100).toFixed(1) + "%" : "0%";
+        const immShare = total !== 0 ? ((displayImmigrants / total) * 100).toFixed(1) + "%" : "0%";
 
         let catName = item.classification;
         if (catName === 'OldAge') catName = 'Old-Age Benefit';
@@ -927,8 +1004,8 @@ function renderVariablesTable() {
         tr.innerHTML = `
             <td>${item.name}</td>
             <td><span class="badge" style="border-color:transparent; background:rgba(255,255,255,0.06); color:#9ca3af;">${catName}</span></td>
-            <td>$${item.us_born.toFixed(1)}B</td>
-            <td>$${item.immigrants.toFixed(1)}B</td>
+            <td>$${displayUsBorn.toFixed(1)}B</td>
+            <td>$${displayImmigrants.toFixed(1)}B</td>
             <td class="${diff >= 0 ? 'positive' : 'negative'}">${(diff >= 0 ? '+' : '-') + '$' + Math.abs(diff).toFixed(1)}B</td>
             <td>${usShare}</td>
             <td>${immShare}</td>

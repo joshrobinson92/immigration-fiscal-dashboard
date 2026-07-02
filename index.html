@@ -146,9 +146,19 @@
 
             <!-- Real-Time Final Net Impact Panel -->
             <section class="net-impact-panel" aria-label="Final Net Fiscal Impact Results">
-                <div class="panel-title">
-                    <i class="fa-solid fa-calculator"></i>
-                    <h2>Calculated Net Fiscal Impact (1994–2023 Combined)</h2>
+                <div class="panel-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-calculator"></i>
+                        <h2 id="panel-heading-title">Calculated Net Fiscal Impact (Annualized Average)</h2>
+                    </div>
+                    <div class="toggle-container" style="margin: 0; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); padding: 0.35rem 0.75rem; border-radius: 20px; display: flex; align-items: center; gap: 0.5rem;">
+                        <span class="toggle-label" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">Format:</span>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-timeframe" checked>
+                            <span class="slider round"></span>
+                        </label>
+                        <span class="toggle-label" id="timeframe-label" style="font-size: 0.78rem; font-weight: 600; color: var(--primary);">Annual Average</span>
+                    </div>
                 </div>
                 <div class="impact-cards-grid">
                     <div class="impact-card" id="card-naturalized">
