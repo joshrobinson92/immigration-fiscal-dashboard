@@ -15,6 +15,7 @@ let state = {
     costK12: true,
     costOldAge: true,
     costWelfare: true,
+    costEmergMed: true,
     costCongestible: true,
     costPrisons: true,
     costHigherEd: true
@@ -76,6 +77,7 @@ function initEventListeners() {
     const costK12Cb = document.getElementById("cost-k12");
     const costOldAgeCb = document.getElementById("cost-oldage");
     const costWelfareCb = document.getElementById("cost-welfare");
+    const costEmergMedCb = document.getElementById("cost-emergmed");
     const costCongestibleCb = document.getElementById("cost-congestible");
     const costPrisonsCb = document.getElementById("cost-prisons");
     const costHigherEdCb = document.getElementById("cost-highered");
@@ -83,6 +85,7 @@ function initEventListeners() {
     costK12Cb.addEventListener("change", (e) => { state.costK12 = e.target.checked; runSimulation(); });
     costOldAgeCb.addEventListener("change", (e) => { state.costOldAge = e.target.checked; runSimulation(); });
     costWelfareCb.addEventListener("change", (e) => { state.costWelfare = e.target.checked; runSimulation(); });
+    costEmergMedCb.addEventListener("change", (e) => { state.costEmergMed = e.target.checked; runSimulation(); });
     costCongestibleCb.addEventListener("change", (e) => { state.costCongestible = e.target.checked; runSimulation(); });
     costPrisonsCb.addEventListener("change", (e) => { state.costPrisons = e.target.checked; runSimulation(); });
     costHigherEdCb.addEventListener("change", (e) => { state.costHigherEd = e.target.checked; runSimulation(); });
@@ -163,6 +166,8 @@ function initEventListeners() {
         state.costOldAge = true;
         costWelfareCb.checked = true;
         state.costWelfare = true;
+        costEmergMedCb.checked = true;
+        state.costEmergMed = true;
         costCongestibleCb.checked = true;
         state.costCongestible = true;
         costPrisonsCb.checked = true;
@@ -259,7 +264,12 @@ function runSimulation() {
         } else if (classification === 'OldAge') {
             active = state.costOldAge;
         } else if (classification === 'Needs') {
-            active = state.costWelfare;
+            let isMedicaidOrSchip = name.includes("Medicaid") || name.includes("Health Insurance Program");
+            if (isMedicaidOrSchip) {
+                active = state.costEmergMed;
+            } else {
+                active = state.costWelfare;
+            }
         } else if (classification === 'Prisons') {
             active = state.costPrisons;
         } else if (classification === 'Other') {
@@ -975,7 +985,13 @@ function renderVariablesTable() {
     const a4 = CATO_STUDY_DATA.spending_and_taxes_detail;
     let filtered = a4;
     
-    if (state.categoryFilter !== 'all') {
+    if (state.categoryFilter === 'Needs') {
+        // Show non-medical needs-based programs
+        filtered = a4.filter(item => item.classification === 'Needs' && !(item.name.includes("Medicaid") || item.name.includes("Health Insurance Program")));
+    } else if (state.categoryFilter === 'EmergMed') {
+        // Show Medicaid and SCHIP emergency medical care programs
+        filtered = a4.filter(item => item.classification === 'Needs' && (item.name.includes("Medicaid") || item.name.includes("Health Insurance Program")));
+    } else if (state.categoryFilter !== 'all') {
         filtered = a4.filter(item => item.classification === state.categoryFilter);
     }
 
@@ -998,7 +1014,10 @@ function renderVariablesTable() {
 
         let catName = item.classification;
         if (catName === 'OldAge') catName = 'Old-Age Benefit';
-        if (catName === 'Needs') catName = 'Needs-based/Welfare';
+        if (catName === 'Needs') {
+            let isMedicaidOrSchip = item.name.includes("Medicaid") || item.name.includes("Health Insurance Program");
+            catName = isMedicaidOrSchip ? 'Emergency Medical' : 'Needs-based/Welfare';
+        }
         if (catName === 'PurePublic') catName = 'Pure Public Good';
 
         tr.innerHTML = `
